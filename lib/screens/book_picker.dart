@@ -7,10 +7,34 @@ class BookPicker extends StatelessWidget {
 
   const BookPicker({super.key, required this.books, required this.onSelect});
 
+  static const _spacing = 8.0;
+  static const _padding = 16.0;
+  static const _bookCount = 66;
+
+  ({int columns, double tile}) _findBestFit(
+    double availWidth,
+    double availHeight,
+  ) {
+    var bestCols = 3;
+    var bestTile = 0.0;
+
+    for (var cols = 1; cols <= _bookCount; cols++) {
+      final rows = (_bookCount / cols).ceil();
+      final tileW = (availWidth - (cols - 1) * _spacing) / cols;
+      final tileH = (availHeight - (rows - 1) * _spacing) / rows;
+      final tile = tileW < tileH ? tileW : tileH;
+      if (tile > bestTile) {
+        bestTile = tile;
+        bestCols = cols;
+      }
+    }
+    return (columns: bestCols, tile: bestTile);
+  }
+
   String _abbreviate(String name) {
     const abbreviations = {
       'Genesis': 'Gen',
-      'Exodus': 'Ex',
+      'Exodus': 'Exod',
       'Leviticus': 'Lev',
       'Numbers': 'Num',
       'Deuteronomy': 'Deut',
@@ -21,8 +45,8 @@ class BookPicker extends StatelessWidget {
       '2 Samuel': '2 Sam',
       '1 Kings': '1 Kgs',
       '2 Kings': '2 Kgs',
-      '1 Chronicles': '1 Chron',
-      '2 Chronicles': '2 Chron',
+      '1 Chronicles': '1 Chr',
+      '2 Chronicles': '2 Chr',
       'Ezra': 'Ezra',
       'Nehemiah': 'Neh',
       'Esther': 'Esth',
@@ -65,7 +89,7 @@ class BookPicker extends StatelessWidget {
       '1 Timothy': '1 Tim',
       '2 Timothy': '2 Tim',
       'Titus': 'Titus',
-      'Philemon': 'Philem',
+      'Philemon': 'Phlm',
       'Hebrews': 'Heb',
       'James': 'Jas',
       '1 Peter': '1 Pet',
@@ -81,53 +105,88 @@ class BookPicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final padding = const EdgeInsets.all(16);
-    final crossAxisSpacing = 8.0;
-    final mainAxisSpacing = 8.0;
-    final crossAxisCount = 3;
-    final itemCount = books.length;
-    final rowRatio = itemCount / crossAxisCount;
-    final topBarHeight = kToolbarHeight + padding.top + padding.bottom;
-    final availableHeight = MediaQuery.of(context).size.height - topBarHeight;
-    final rowHeight = (availableHeight - mainAxisSpacing * (rowRatio - 1)) / rowRatio;
-    final crossAxisExtent =
-        (MediaQuery.of(context).size.width - padding.left - padding.right - crossAxisSpacing * (crossAxisCount - 1)) / crossAxisCount;
-    final childAspectRatio = crossAxisExtent / rowHeight;
+    final statusBarHeight = MediaQuery.of(context).padding.top;
+    final appBarHeight = AppBar().preferredSize.height;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Select a Book'),
       ),
-      body: GridView.builder(
-        padding: padding,
-        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: crossAxisCount,
-          crossAxisSpacing: crossAxisSpacing,
-          mainAxisSpacing: mainAxisSpacing,
-          childAspectRatio: childAspectRatio,
-        ),
-        itemCount: itemCount,
-        physics: const NeverScrollableScrollPhysics(),
-        itemBuilder: (context, index) {
-          final book = books[index];
-          final abbreviated = _abbreviate(book.name);
-          return Material(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(8),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(8),
-              onTap: () => onSelect(book),
-              child: Center(
-                child: Text(
-                  abbreviated,
-                  style: const TextStyle(
-                    fontSize: 13,
-                    fontWeight: FontWeight.w500,
-                  ),
+      body: LayoutBuilder(
+        builder: (context, constraints) {
+          final availWidth = constraints.maxWidth - _padding * 2;
+          final availHeight = constraints.maxHeight -
+              statusBarHeight -
+              appBarHeight -
+              _padding * 2;
+
+          final best = _findBestFit(availWidth, availHeight);
+
+          return CustomScrollView(
+            slivers: [
+              SliverGrid(
+                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                  crossAxisCount: best.columns,
+                  childAspectRatio: 1.0,
+                  mainAxisSpacing: _spacing,
+                  crossAxisSpacing: _spacing,
+                ),
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final book = books[index];
+                    final abbreviated = _abbreviate(book.name);
+                    return _BookTile(
+                      text: abbreviated,
+                      onTap: () => onSelect(book),
+                      semanticsLabel: book.name,
+                    );
+                  },
+                  childCount: books.length,
                 ),
               ),
-            ),
+            ],
           );
         },
+      ),
+    );
+  }
+}
+
+class _BookTile extends StatelessWidget {
+  final String text;
+  final VoidCallback onTap;
+  final String semanticsLabel;
+
+  const _BookTile({
+    required this.text,
+    required this.onTap,
+    required this.semanticsLabel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: theme.colorScheme.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(8),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(8),
+        onTap: onTap,
+        child: Semantics(
+          label: semanticsLabel,
+          child: Center(
+            child: Text(
+              text,
+              textAlign: TextAlign.center,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
+          ),
+        ),
       ),
     );
   }
