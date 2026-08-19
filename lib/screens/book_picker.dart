@@ -9,7 +9,6 @@ class BookPicker extends StatelessWidget {
 
   static const _spacing = 8.0;
   static const _padding = 16.0;
-  static const _bookCount = 66;
 
   ({int columns, double tile}) _findBestFit(
     double availWidth,
@@ -18,8 +17,8 @@ class BookPicker extends StatelessWidget {
     var bestCols = 3;
     var bestTile = 0.0;
 
-    for (var cols = 1; cols <= _bookCount; cols++) {
-      final rows = (_bookCount / cols).ceil();
+    for (var cols = 1; cols <= books.length; cols++) {
+      final rows = (books.length / cols).ceil();
       final tileW = (availWidth - (cols - 1) * _spacing) / cols;
       final tileH = (availHeight - (rows - 1) * _spacing) / rows;
       final tile = tileW < tileH ? tileW : tileH;
@@ -31,7 +30,15 @@ class BookPicker extends StatelessWidget {
     return (columns: bestCols, tile: bestTile);
   }
 
+  String _normalizeBookName(String name) {
+    return name
+        .replaceAllMapped(RegExp(r'\bI\b'), (m) => '1')
+        .replaceAllMapped(RegExp(r'\bII\b'), (m) => '2')
+        .replaceAllMapped(RegExp(r'\bIII\b'), (m) => '3');
+  }
+
   String _abbreviate(String name) {
+    final normalized = _normalizeBookName(name.trim());
     const abbreviations = {
       'Genesis': 'Gen',
       'Exodus': 'Exod',
@@ -98,55 +105,53 @@ class BookPicker extends StatelessWidget {
       '2 John': '2 John',
       '3 John': '3 John',
       'Jude': 'Jude',
-      'Revelation': 'Rev',
+      'Rev': 'Rev',
+      'Revelation of John': 'Rev',
     };
-    return abbreviations[name] ?? name.substring(0, name.length.clamp(0, 4));
+    return abbreviations[normalized] ?? name.substring(0, name.length.clamp(0, 4));
   }
 
   @override
   Widget build(BuildContext context) {
-    final statusBarHeight = MediaQuery.of(context).padding.top;
-    final appBarHeight = AppBar().preferredSize.height;
-
     return Scaffold(
       appBar: AppBar(
         title: const Text('Select a Book'),
       ),
-      body: LayoutBuilder(
-        builder: (context, constraints) {
-          final availWidth = constraints.maxWidth - _padding * 2;
-          final availHeight = constraints.maxHeight -
-              statusBarHeight -
-              appBarHeight -
-              _padding * 2;
+      body: Padding(
+        padding: const EdgeInsets.all(_padding),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final availWidth = constraints.maxWidth;
+            final availHeight = constraints.maxHeight;
 
-          final best = _findBestFit(availWidth, availHeight);
+            final best = _findBestFit(availWidth, availHeight);
 
-          return CustomScrollView(
-            slivers: [
-              SliverGrid(
-                gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
-                  crossAxisCount: best.columns,
-                  childAspectRatio: 1.0,
-                  mainAxisSpacing: _spacing,
-                  crossAxisSpacing: _spacing,
+            return CustomScrollView(
+              slivers: [
+                SliverGrid(
+                  gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+                    crossAxisCount: best.columns,
+                    childAspectRatio: 1.0,
+                    mainAxisSpacing: _spacing,
+                    crossAxisSpacing: _spacing,
+                  ),
+                  delegate: SliverChildBuilderDelegate(
+                    (context, index) {
+                      final book = books[index];
+                      final abbreviated = _abbreviate(book.name);
+                      return _BookTile(
+                        text: abbreviated,
+                        onTap: () => onSelect(book),
+                        semanticsLabel: book.name,
+                      );
+                    },
+                    childCount: books.length,
+                  ),
                 ),
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final book = books[index];
-                    final abbreviated = _abbreviate(book.name);
-                    return _BookTile(
-                      text: abbreviated,
-                      onTap: () => onSelect(book),
-                      semanticsLabel: book.name,
-                    );
-                  },
-                  childCount: books.length,
-                ),
-              ),
-            ],
-          );
-        },
+              ],
+            );
+          },
+        ),
       ),
     );
   }
