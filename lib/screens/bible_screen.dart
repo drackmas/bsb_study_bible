@@ -72,15 +72,18 @@ class _BibleScreenState extends State<BibleScreen> {
             });
             _loadChapter();
             Navigator.pop(context);
+            if (context.mounted) {
+              _showChapterPicker(bookName: book.name);
+            }
           },
         ),
       ),
     );
   }
 
-  void _showChapterPicker() {
-    final book = _bibleService.findBook(_bookName);
-    final chapters = book?.chapters ?? [];
+  void _showChapterPicker({String? bookName}) {
+    final resolvedBook = _bibleService.findBook(bookName ?? _bookName);
+    final chapters = resolvedBook?.chapters ?? [];
     showModalBottomSheet(
       context: context,
       builder: (context) => ChapterPicker(
@@ -157,19 +160,12 @@ class _BibleScreenState extends State<BibleScreen> {
                         padding: const EdgeInsets.only(bottom: 8),
                         child: RichText(
                           text: TextSpan(
+                            text: '${verse.verse} ',
                             style: const TextStyle(
-                              fontSize: 16,
-                              height: 1.6,
-                              color: Color(0xFF212121),
+                              fontWeight: FontWeight.bold,
+                              color: Color(0xFF1565C0),
                             ),
                             children: [
-                              TextSpan(
-                                text: '${verse.verse} ',
-                                style: const TextStyle(
-                                  fontWeight: FontWeight.bold,
-                                  color: Color(0xFF1565C0),
-                                ),
-                              ),
                               TextSpan(text: verse.text),
                             ],
                           ),
@@ -203,37 +199,43 @@ class _BibleScreenState extends State<BibleScreen> {
         ],
       ),
       child: SafeArea(
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // 1. Book abbreviation
-            _NavButton(
-              text: abbr,
-              onTap: _showBookPicker,
+            // Row 1: Book button (left) and Menu button (right)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.spaceBetween,
+              children: [
+                _NavButton(
+                  text: abbr,
+                  onTap: _showBookPicker,
+                ),
+                _MenuIconButton(
+                  icon: Icons.menu,
+                  onMenuTap: _showSettingsMenu,
+                ),
+              ],
             ),
-            const SizedBox(width: 8),
-            // 2. Previous chapter
-            _NavIconButton(
-              icon: Icons.chevron_left,
-              onPressed: prevDisabled ? null : () => _changeChapter(-1),
-            ),
-            const SizedBox(width: 8),
-            // 3. Chapter number
-            _NavButton(
-              text: '$_chapterNum',
-              onTap: _showChapterPicker,
-            ),
-            const SizedBox(width: 8),
-            // 4. Next chapter
-            _NavIconButton(
-              icon: Icons.chevron_right,
-              onPressed: nextDisabled ? null : () => _changeChapter(1),
-            ),
-            const SizedBox(width: 8),
-            // 5. Settings menu
-            _MenuIconButton(
-              icon: Icons.menu,
-              onMenuTap: _showSettingsMenu,
+            const SizedBox(height: 4),
+            // Row 2: Previous, Chapter, Next (centered)
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                _NavIconButton(
+                  icon: Icons.chevron_left,
+                  onPressed: prevDisabled ? null : () => _changeChapter(-1),
+                ),
+                const SizedBox(width: 8),
+                _NavButton(
+                  text: '$_chapterNum',
+                  onTap: _showChapterPicker,
+                ),
+                const SizedBox(width: 8),
+                _NavIconButton(
+                  icon: Icons.chevron_right,
+                  onPressed: nextDisabled ? null : () => _changeChapter(1),
+                ),
+              ],
             ),
           ],
         ),
