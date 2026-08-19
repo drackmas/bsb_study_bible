@@ -97,53 +97,56 @@ class _BibleScreenState extends State<BibleScreen> {
     );
   }
 
+  String _bookAbbreviation(String name) {
+    final normalized = name.trim().toLowerCase();
+    return _abbreviations[normalized] ??
+        name.substring(0, name.length.clamp(0, 4));
+  }
+
+  void _showSettingsMenu(BuildContext context, RenderBox button) {
+    if (!context.mounted) return;
+    final position = button.localToGlobal(Offset.zero);
+
+    showMenu(
+      context: context,
+      position: RelativeRect.fromLTRB(
+        position.dx,
+        position.dy + button.size.height,
+        position.dx,
+        MediaQuery.of(context).size.height - position.dy - button.size.height,
+      ),
+      items: [
+        const PopupMenuItem<String>(
+          value: 'settings',
+          child: Row(
+            children: [
+              Icon(Icons.settings, size: 20),
+              SizedBox(width: 12),
+              Text('Settings'),
+            ],
+          ),
+        ),
+      ],
+    ).then((value) {
+      if (!context.mounted) return;
+      if (value == 'settings') {
+        Navigator.of(context).pushNamed('/settings');
+      }
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_bookName),
-        actions: [
-          PopupMenuButton<String>(
-            icon: const Icon(Icons.menu),
-            tooltip: 'Open navigation menu',
-            onSelected: (value) {
-              if (value == 'settings') {
-                Navigator.of(context).pushNamed('/settings');
-              }
-            },
-            itemBuilder: (context) => [
-              const PopupMenuItem<String>(
-                value: 'settings',
-                child: Row(
-                  children: [
-                    Icon(Icons.settings, size: 20),
-                    SizedBox(width: 12),
-                    Text('Settings'),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ],
+        title: Text(_bookAbbreviation(_bookName)),
+        elevation: 0,
+        backgroundColor: Theme.of(context).colorScheme.surface,
       ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Column(
               children: [
-                GestureDetector(
-                  onTap: _showBookPicker,
-                  child: Container(
-                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                    child: Text(
-                      _bookName,
-                      style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.bold,
-                      ),
-                      overflow: TextOverflow.ellipsis,
-                    ),
-                  ),
-                ),
                 Expanded(
                   child: ListView.builder(
                     padding: const EdgeInsets.all(16),
@@ -175,54 +178,208 @@ class _BibleScreenState extends State<BibleScreen> {
                     },
                   ),
                 ),
-                Container(
-                  padding: const EdgeInsets.all(16),
-                  decoration: BoxDecoration(
-                    color: Theme.of(context).colorScheme.surface,
-                    boxShadow: [
-                      BoxShadow(
-                        color: Colors.black.withValues(alpha: 0.1),
-                        blurRadius: 4,
-                        offset: const Offset(0, -2),
-                      ),
-                    ],
-                  ),
-                  child: Row(
-                    mainAxisAlignment: MainAxisAlignment.center,
-                    children: [
-                      IconButton(
-                        icon: const Icon(Icons.chevron_left),
-                        onPressed: _chapterNum > 1 ? () => _changeChapter(-1) : null,
-                      ),
-                      GestureDetector(
-                        onTap: _showChapterPicker,
-                        child: Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
-                          decoration: BoxDecoration(
-                            color: Theme.of(context).colorScheme.primaryContainer,
-                            borderRadius: BorderRadius.circular(20),
-                          ),
-                          child: Text(
-                            '$_chapterNum',
-                            style: TextStyle(
-                              fontSize: 18,
-                              fontWeight: FontWeight.bold,
-                              color: Theme.of(context).colorScheme.onPrimaryContainer,
-                            ),
-                          ),
-                        ),
-                      ),
-                      IconButton(
-                        icon: const Icon(Icons.chevron_right),
-                        onPressed: _chapterNum < _bibleService.getChapterCount(_bookName)
-                            ? () => _changeChapter(1)
-                            : null,
-                      ),
-                    ],
-                  ),
-                ),
+                _buildBottomNav(),
               ],
             ),
     );
   }
+
+  Widget _buildBottomNav() {
+    final abbr = _bookAbbreviation(_bookName);
+    final prevDisabled = _chapterNum <= 1;
+    final nextDisabled =
+        _chapterNum >= _bibleService.getChapterCount(_bookName);
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 8),
+      decoration: BoxDecoration(
+        color: Theme.of(context).colorScheme.surface,
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.1),
+            blurRadius: 4,
+            offset: const Offset(0, -2),
+          ),
+        ],
+      ),
+      child: SafeArea(
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            // 1. Book abbreviation
+            _NavButton(
+              text: abbr,
+              onTap: _showBookPicker,
+            ),
+            const SizedBox(width: 8),
+            // 2. Previous chapter
+            _NavIconButton(
+              icon: Icons.chevron_left,
+              onPressed: prevDisabled ? null : () => _changeChapter(-1),
+            ),
+            const SizedBox(width: 8),
+            // 3. Chapter number
+            _NavButton(
+              text: '$_chapterNum',
+              onTap: _showChapterPicker,
+            ),
+            const SizedBox(width: 8),
+            // 4. Next chapter
+            _NavIconButton(
+              icon: Icons.chevron_right,
+              onPressed: nextDisabled ? null : () => _changeChapter(1),
+            ),
+            const SizedBox(width: 8),
+            // 5. Settings menu
+            _MenuIconButton(
+              icon: Icons.menu,
+              onMenuTap: _showSettingsMenu,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
+
+class _NavButton extends StatelessWidget {
+  final String text;
+  final VoidCallback onTap;
+
+  const _NavButton({required this.text, required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
+        decoration: BoxDecoration(
+          color: Theme.of(context).colorScheme.primaryContainer,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        child: Text(
+          text,
+          style: TextStyle(
+            fontSize: 16,
+            fontWeight: FontWeight.bold,
+            color: Theme.of(context).colorScheme.onPrimaryContainer,
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _NavIconButton extends StatelessWidget {
+  final IconData icon;
+  final VoidCallback? onPressed;
+
+  const _NavIconButton({required this.icon, required this.onPressed});
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      icon: Icon(icon),
+      onPressed: onPressed,
+    );
+  }
+}
+
+class _MenuIconButton extends StatefulWidget {
+  final IconData icon;
+  final void Function(BuildContext, RenderBox) onMenuTap;
+
+  const _MenuIconButton({required this.icon, required this.onMenuTap});
+
+  @override
+  State<_MenuIconButton> createState() => _MenuIconButtonState();
+}
+
+class _MenuIconButtonState extends State<_MenuIconButton> {
+  final GlobalKey _buttonKey = GlobalKey();
+
+  @override
+  Widget build(BuildContext context) {
+    return IconButton(
+      key: _buttonKey,
+      icon: Icon(widget.icon),
+      onPressed: () {
+        final renderBox =
+            _buttonKey.currentContext?.findRenderObject() as RenderBox?;
+        if (renderBox != null) {
+          widget.onMenuTap(context, renderBox);
+        }
+      },
+    );
+  }
+}
+
+const _abbreviations = {
+  'genesis': 'Gen',
+  'exodus': 'Exod',
+  'leviticus': 'Lev',
+  'numbers': 'Num',
+  'deuteronomy': 'Deut',
+  'joshua': 'Josh',
+  'judges': 'Judg',
+  'ruth': 'Ruth',
+  '1 samuel': '1 Sam',
+  '2 samuel': '2 Sam',
+  '1 kings': '1 Kgs',
+  '2 kings': '2 Kgs',
+  '1 chronicles': '1 Chr',
+  '2 chronicles': '2 Chr',
+  'ezra': 'Ezra',
+  'nehemiah': 'Neh',
+  'esther': 'Esth',
+  'job': 'Job',
+  'psalms': 'Ps',
+  'proverbs': 'Prov',
+  'ecclesiastes': 'Eccl',
+  'song of solomon': 'Song',
+  'isaiah': 'Isa',
+  'jeremiah': 'Jer',
+  'lamentations': 'Lam',
+  'ezekiel': 'Ezek',
+  'daniel': 'Dan',
+  'hosea': 'Hos',
+  'joel': 'Joel',
+  'amos': 'Amos',
+  'obadiah': 'Obad',
+  'jonah': 'Jonah',
+  'micah': 'Mic',
+  'nahum': 'Nah',
+  'habakkuk': 'Hab',
+  'zephaniah': 'Zeph',
+  'haggai': 'Hag',
+  'zechariah': 'Zech',
+  'malachi': 'Mal',
+  'matthew': 'Matt',
+  'mark': 'Mark',
+  'luke': 'Luke',
+  'john': 'John',
+  'acts': 'Acts',
+  'romans': 'Rom',
+  '1 corinthians': '1 Cor',
+  '2 corinthians': '2 Cor',
+  'galatians': 'Gal',
+  'ephesians': 'Eph',
+  'philippians': 'Phil',
+  'colossians': 'Col',
+  '1 thessalonians': '1 Thess',
+  '2 thessalonians': '2 Thess',
+  '1 timothy': '1 Tim',
+  '2 timothy': '2 Tim',
+  'titus': 'Titus',
+  'philemon': 'Phlm',
+  'hebrews': 'Heb',
+  'james': 'Jas',
+  '1 peter': '1 Pet',
+  '2 peter': '2 Pet',
+  '1 john': '1 John',
+  '2 john': '2 John',
+  '3 john': '3 John',
+  'jude': 'Jude',
+  'revelation': 'Rev',
+};
