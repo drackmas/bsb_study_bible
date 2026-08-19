@@ -199,25 +199,19 @@ class _BibleScreenState extends State<BibleScreen> {
         ],
       ),
       child: SafeArea(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
+        child: Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Row 1: Book button (left) and Menu button (right)
-            Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                _NavButton(
-                  text: abbr,
-                  onTap: _showBookPicker,
-                ),
-                _MenuIconButton(
-                  icon: Icons.menu,
-                  onMenuTap: _showSettingsMenu,
-                ),
-              ],
+            // Left: Book abbreviation
+            Expanded(
+              child: _NavButton(
+                text: abbr,
+                onTap: _showBookPicker,
+                alignment: Alignment.centerLeft,
+              ),
             ),
-            const SizedBox(height: 4),
-            // Row 2: Previous, Chapter, Next (centered)
+            const SizedBox(width: 8),
+            // Center: Prev, Chapter, Next
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -226,16 +220,22 @@ class _BibleScreenState extends State<BibleScreen> {
                   onPressed: prevDisabled ? null : () => _changeChapter(-1),
                 ),
                 const SizedBox(width: 8),
-                _NavButton(
-                  text: '$_chapterNum',
-                  onTap: _showChapterPicker,
-                ),
+                _NavButton(text: '$_chapterNum'),
                 const SizedBox(width: 8),
                 _NavIconButton(
                   icon: Icons.chevron_right,
                   onPressed: nextDisabled ? null : () => _changeChapter(1),
                 ),
               ],
+            ),
+            const SizedBox(width: 8),
+            // Right: Menu button
+            Expanded(
+              child: _MenuIconButton(
+                icon: Icons.menu,
+                alignment: Alignment.centerRight,
+                onMenuTap: _showSettingsMenu,
+              ),
             ),
           ],
         ),
@@ -246,15 +246,21 @@ class _BibleScreenState extends State<BibleScreen> {
 
 class _NavButton extends StatelessWidget {
   final String text;
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
+  final AlignmentGeometry alignment;
 
-  const _NavButton({required this.text, required this.onTap});
+  const _NavButton({
+    required this.text,
+    this.onTap,
+    this.alignment = Alignment.center,
+  });
 
   @override
   Widget build(BuildContext context) {
     return GestureDetector(
       onTap: onTap,
       child: Container(
+        alignment: alignment,
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
         decoration: BoxDecoration(
           color: Theme.of(context).colorScheme.primaryContainer,
@@ -291,8 +297,13 @@ class _NavIconButton extends StatelessWidget {
 class _MenuIconButton extends StatefulWidget {
   final IconData icon;
   final void Function(BuildContext, RenderBox) onMenuTap;
+  final AlignmentGeometry alignment;
 
-  const _MenuIconButton({required this.icon, required this.onMenuTap});
+  const _MenuIconButton({
+    required this.icon,
+    required this.onMenuTap,
+    this.alignment = Alignment.center,
+  });
 
   @override
   State<_MenuIconButton> createState() => _MenuIconButtonState();
@@ -303,16 +314,19 @@ class _MenuIconButtonState extends State<_MenuIconButton> {
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
-      key: _buttonKey,
-      icon: Icon(widget.icon),
-      onPressed: () {
-        final renderBox =
-            _buttonKey.currentContext?.findRenderObject() as RenderBox?;
-        if (renderBox != null) {
-          widget.onMenuTap(context, renderBox);
-        }
-      },
+    return Align(
+      alignment: widget.alignment,
+      child: IconButton(
+        key: _buttonKey,
+        icon: Icon(widget.icon),
+        onPressed: () {
+          final renderBox =
+              _buttonKey.currentContext?.findRenderObject() as RenderBox?;
+          if (renderBox != null) {
+            widget.onMenuTap(context, renderBox);
+          }
+        },
+      ),
     );
   }
 }
