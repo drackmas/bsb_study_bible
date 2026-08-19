@@ -142,7 +142,8 @@ class _BibleScreenState extends State<BibleScreen> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(
-        title: Text(_bookAbbreviation(_bookName)),
+        title: Text('$_bookName Chapter $_chapterNum'),
+        centerTitle: true,
         elevation: 0,
         backgroundColor: Theme.of(context).colorScheme.surface,
       ),
