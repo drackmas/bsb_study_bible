@@ -100,6 +100,32 @@ class _BibleScreenState extends State<BibleScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
+      appBar: AppBar(
+        title: Text(_bookName),
+        actions: [
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.menu),
+            tooltip: 'Open navigation menu',
+            onSelected: (value) {
+              if (value == 'settings') {
+                Navigator.of(context).pushNamed('/settings');
+              }
+            },
+            itemBuilder: (context) => [
+              const PopupMenuItem<String>(
+                value: 'settings',
+                child: Row(
+                  children: [
+                    Icon(Icons.settings, size: 20),
+                    SizedBox(width: 12),
+                    Text('Settings'),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
       body: _isLoading
           ? const Center(child: CircularProgressIndicator())
           : Column(
