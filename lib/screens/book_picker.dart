@@ -81,16 +81,32 @@ class BookPicker extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(16),
-      height: 400,
-      child: GridView.builder(
-        gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-          crossAxisCount: 4,
-          crossAxisSpacing: 8,
-          mainAxisSpacing: 8,
+    final padding = const EdgeInsets.all(16);
+    final crossAxisSpacing = 8.0;
+    final mainAxisSpacing = 8.0;
+    final crossAxisCount = 3;
+    final itemCount = books.length;
+    final rowRatio = itemCount / crossAxisCount;
+    final topBarHeight = kToolbarHeight + padding.top + padding.bottom;
+    final availableHeight = MediaQuery.of(context).size.height - topBarHeight;
+    final rowHeight = (availableHeight - mainAxisSpacing * (rowRatio - 1)) / rowRatio;
+    final crossAxisExtent =
+        (MediaQuery.of(context).size.width - padding.left - padding.right - crossAxisSpacing * (crossAxisCount - 1)) / crossAxisCount;
+    final childAspectRatio = crossAxisExtent / rowHeight;
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Select a Book'),
+      ),
+      body: GridView.builder(
+        padding: padding,
+        gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+          crossAxisCount: crossAxisCount,
+          crossAxisSpacing: crossAxisSpacing,
+          mainAxisSpacing: mainAxisSpacing,
+          childAspectRatio: childAspectRatio,
         ),
-        itemCount: books.length,
+        itemCount: itemCount,
+        physics: const NeverScrollableScrollPhysics(),
         itemBuilder: (context, index) {
           final book = books[index];
           final abbreviated = _abbreviate(book.name);

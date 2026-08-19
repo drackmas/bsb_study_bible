@@ -60,18 +60,20 @@ class _BibleScreenState extends State<BibleScreen> {
   }
 
   void _showBookPicker() {
-    showModalBottomSheet(
-      context: context,
-      builder: (context) => BookPicker(
-        books: _bibleService.books,
-        onSelect: (book) {
-          setState(() {
-            _bookName = book.name;
-            _chapterNum = 1;
-          });
-          _loadChapter();
-          Navigator.pop(context);
-        },
+    Navigator.push(
+      context,
+      MaterialPageRoute(
+        builder: (context) => BookPicker(
+          books: _bibleService.books,
+          onSelect: (book) {
+            setState(() {
+              _bookName = book.name;
+              _chapterNum = 1;
+            });
+            _loadChapter();
+            Navigator.pop(context);
+          },
+        ),
       ),
     );
   }
