@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -19,10 +20,18 @@ class BibleScreen extends StatefulWidget {
 
 class _BibleScreenState extends State<BibleScreen> {
   final _bibleService = BibleService();
+  final _scrollController = ScrollController();
   String _bookName = 'Genesis';
   int _chapterNum = 1;
   List<Verse> _verses = [];
   bool _isLoading = true;
+
+  // Highlight state
+  int? _highlightedVerse;
+  Timer? _highlightTimer;
+
+  // Keys for each verse item
+  final Map<int, GlobalKey> _verseKeys = {};
 
   @override
   void initState() {
@@ -31,10 +40,16 @@ class _BibleScreenState extends State<BibleScreen> {
   }
 
   @override
+  void dispose() {
+    _scrollController.dispose();
+    _highlightTimer?.cancel();
+    super.dispose();
+  }
+
+  @override
   void didChangeDependencies() {
     super.didChangeDependencies();
 
-    // React to jump requests coming from Commentary
     final provider = context.watch<CommentaryProvider>();
     final pending = provider.pendingBibleRef;
 
@@ -65,11 +80,66 @@ class _BibleScreenState extends State<BibleScreen> {
   }
 
   void _loadChapter() {
+    _clearHighlight();
     _verses = _bibleService.getVerses(_bookName, _chapterNum);
+    _verseKeys.clear();
+    for (final verse in _verses) {
+      _verseKeys[verse.verse] = GlobalKey();
+    }
     setState(() {});
   }
 
-  void _jumpToReference(String canonicalRef) {
+  void _clearHighlight() {
+    _highlightTimer?.cancel();
+    _highlightTimer = null;
+    if (mounted) {
+      setState(() => _highlightedVerse = null);
+    }
+  }
+
+  void _highlightVerse(int verseNum) {
+    _clearHighlight();
+    
+    if (mounted) {
+      setState(() => _highlightedVerse = verseNum);
+    }
+
+    _highlightTimer = Timer(const Duration(seconds: 5), () {
+      if (mounted) {
+        setState(() => _highlightedVerse = null);
+      }
+    });
+  }
+
+  Future<void> _scrollToVerse(int verseNum) async {
+    final key = _verseKeys[verseNum];
+    if (key == null) return;
+
+    final renderObject = key.currentContext?.findRenderObject() as RenderBox?;
+    if (renderObject == null) return;
+
+    final scrollPosition = _scrollController.position;
+    final viewportBox = Scrollable.of(context).context.findRenderObject() as RenderBox;
+
+    // Distance from the top of the viewport to the top of the verse row.
+    final verseTop = renderObject.localToGlobal(Offset.zero).dy;
+    final viewportTop = viewportBox.localToGlobal(Offset.zero).dy;
+    final verseOffsetInViewport = verseTop - viewportTop;
+
+    // Center the verse row vertically within the viewport.
+    final targetOffset = scrollPosition.pixels +
+        verseOffsetInViewport -
+        (scrollPosition.viewportDimension / 2) +
+        (renderObject.size.height / 2);
+
+    await scrollPosition.animateTo(
+      targetOffset.clamp(0.0, scrollPosition.maxScrollExtent),
+      duration: const Duration(milliseconds: 400),
+      curve: Curves.easeInOut,
+    );
+  }
+
+  Future<void> _jumpToReference(String canonicalRef) async {
     final parser = ScriptureParser();
     final ref = parser.parse(canonicalRef);
     if (ref == null) return;
@@ -82,6 +152,17 @@ class _BibleScreenState extends State<BibleScreen> {
       _chapterNum = ref.chapter;
     });
     _loadChapter();
+
+    // Wait for verses to load, then scroll to and highlight
+    await Future.delayed(const Duration(milliseconds: 100));
+
+    if (!mounted) return;
+
+    // Find the first verse in the reference (could be multiple)
+    final firstVerse = ref.verses.isNotEmpty ? ref.verses.first : 1;
+
+    await _scrollToVerse(firstVerse);
+    _highlightVerse(firstVerse);
   }
 
   void _onVerseTap(String canonicalRef) {
@@ -138,39 +219,24 @@ class _BibleScreenState extends State<BibleScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
     final provider = context.watch<CommentaryProvider>();
+    final colorScheme = Theme.of(context).colorScheme;
 
     return Scaffold(
       appBar: AppBar(
-        title: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            GestureDetector(
-              onTap: _openBookPicker,
-              child: Text(
+        title: InkWell(
+          onTap: _openBookPicker,
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
                 _bookName,
-                style: const TextStyle(fontWeight: FontWeight.bold),
+                style: const TextStyle(fontWeight: FontWeight.w600),
               ),
-            ),
-            const SizedBox(width: 6),
-            GestureDetector(
-              onTap: _openChapterPicker,
-              child: Text(
-                '$_chapterNum',
-                style: const TextStyle(fontWeight: FontWeight.w500),
-              ),
-            ),
-            const SizedBox(width: 2),
-            Icon(
-              Icons.arrow_drop_down,
-              size: 22,
-              color: colorScheme.onSurface,
-            ),
-          ],
+              const Icon(Icons.arrow_drop_down, size: 20),
+            ],
+          ),
         ),
-        centerTitle: true,
-        elevation: 0,
         actions: [
           IconButton(
             icon: const Icon(Icons.chevron_left),
@@ -193,6 +259,11 @@ class _BibleScreenState extends State<BibleScreen> {
               }
             },
           ),
+          IconButton(
+            icon: const Icon(Icons.menu_book),
+            tooltip: 'Select chapter',
+            onPressed: _openChapterPicker,
+          ),
         ],
       ),
       body: _isLoading
@@ -200,6 +271,7 @@ class _BibleScreenState extends State<BibleScreen> {
           : _verses.isEmpty
               ? const Center(child: Text('No verses available'))
               : ListView.builder(
+                  controller: _scrollController,
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
                   itemCount: _verses.length,
                   itemBuilder: (context, index) {
@@ -207,67 +279,82 @@ class _BibleScreenState extends State<BibleScreen> {
                     final canonicalRef = verse.toCanonical();
                     final hasCommentary =
                         provider.hasCommentaryFor(canonicalRef);
+                    final isHighlighted = _highlightedVerse == verse.verse;
 
-                    return InkWell(
-                      onTap: () => _onVerseTap(canonicalRef),
-                      borderRadius: BorderRadius.circular(8),
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          vertical: 8,
-                          horizontal: 4,
-                        ),
-                        child: Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            SizedBox(
-                              width: 36,
-                              child: Text(
-                                '${verse.verse}',
-                                style: TextStyle(
-                                  fontSize: 13,
-                                  fontWeight: FontWeight.w600,
-                                  color: colorScheme.secondary,
+                    return AnimatedContainer(
+                      key: _verseKeys[verse.verse],
+                      duration: const Duration(milliseconds: 300),
+                      curve: Curves.easeInOut,
+                      decoration: BoxDecoration(
+                        color: isHighlighted
+                            ? colorScheme.primary.withValues(alpha: 0.15)
+                            : null,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: InkWell(
+                        onTap: () => _onVerseTap(canonicalRef),
+                        borderRadius: BorderRadius.circular(8),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            vertical: 8,
+                            horizontal: 4,
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              SizedBox(
+                                width: 36,
+                                child: Text(
+                                  '${verse.verse}',
+                                  style: TextStyle(
+                                    fontSize: 13,
+                                    fontWeight: FontWeight.w600,
+                                    color: isHighlighted
+                                        ? colorScheme.primary
+                                        : colorScheme.secondary,
+                                  ),
                                 ),
                               ),
-                            ),
-                            const SizedBox(width: 8),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    verse.text,
-                                    style: TextStyle(
-                                      fontSize: 16.5,
-                                      height: 1.55,
-                                      color: colorScheme.onSurface,
+                              const SizedBox(width: 8),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment:
+                                      CrossAxisAlignment.start,
+                                  children: [
+                                    Text(
+                                      verse.text,
+                                      style: TextStyle(
+                                        fontSize: 16.5,
+                                        height: 1.55,
+                                        color: colorScheme.onSurface,
+                                      ),
                                     ),
-                                  ),
-                                  if (hasCommentary) ...[
-                                    const SizedBox(height: 6),
-                                    Row(
-                                      children: [
-                                        Icon(
-                                          Icons.auto_awesome,
-                                          size: 13,
-                                          color: colorScheme.primary,
-                                        ),
-                                        const SizedBox(width: 4),
-                                        Text(
-                                          'Commentary available',
-                                          style: TextStyle(
-                                            fontSize: 12,
+                                    if (hasCommentary) ...[
+                                      const SizedBox(height: 6),
+                                      Row(
+                                        children: [
+                                          Icon(
+                                            Icons.auto_awesome,
+                                            size: 13,
                                             color: colorScheme.primary,
-                                            fontWeight: FontWeight.w500,
                                           ),
-                                        ),
-                                      ],
-                                    ),
+                                          const SizedBox(width: 4),
+                                          Text(
+                                            'Commentary available',
+                                            style: TextStyle(
+                                              fontSize: 12,
+                                              color: colorScheme.primary,
+                                              fontWeight: FontWeight.w500,
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
                                   ],
-                                ],
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     );
