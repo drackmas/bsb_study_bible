@@ -54,4 +54,10 @@ class BibleService {
     if (book == null) return 0;
     return book.chapters.length;
   }
+
+  List<Chapter> getChapters(String bookName) {
+    final book = findBook(bookName);
+    if (book == null) return [];
+    return book.chapters;
+  }
 }

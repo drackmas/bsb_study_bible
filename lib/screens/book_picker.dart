@@ -3,9 +3,8 @@ import '../models/book.dart';
 
 class BookPicker extends StatelessWidget {
   final List<Book> books;
-  final void Function(Book) onSelect;
 
-  const BookPicker({super.key, required this.books, required this.onSelect});
+  const BookPicker({super.key, required this.books});
 
   static const _spacing = 8.0;
   static const _padding = 16.0;
@@ -141,7 +140,7 @@ class BookPicker extends StatelessWidget {
                       final abbreviated = _abbreviate(book.name);
                       return _BookTile(
                         text: abbreviated,
-                        onTap: () => onSelect(book),
+                        onTap: () => Navigator.pop(context, book),
                         semanticsLabel: book.name,
                       );
                     },

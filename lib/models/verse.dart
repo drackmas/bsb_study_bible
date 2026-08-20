@@ -19,4 +19,11 @@ class Verse {
       text: json['text'] as String,
     );
   }
+
+  String toCanonical() {
+    return '$name $chapter:$verse';
+  }
+
+  @override
+  String toString() => toCanonical();
 }
