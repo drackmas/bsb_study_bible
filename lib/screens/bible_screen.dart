@@ -221,7 +221,7 @@ class _BibleScreenState extends State<BibleScreen> {
                   onPressed: prevDisabled ? null : () => _changeChapter(-1),
                 ),
                 const SizedBox(width: 8),
-                _NavButton(text: '$_chapterNum'),
+                _NavButton(text: '$_chapterNum', onTap: _showChapterPicker),
                 const SizedBox(width: 8),
                 _NavIconButton(
                   icon: Icons.chevron_right,

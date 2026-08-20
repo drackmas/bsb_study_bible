@@ -10,7 +10,7 @@ class BibleService {
 
   Future<void> load() async {
     if (_loaded) return;
-    final raw = await rootBundle.loadString('assets/BSB.json');
+    final raw = await rootBundle.loadString('assets/bible/BSB.json');
     final data = jsonDecode(raw) as Map<String, dynamic>;
     final booksJson = data['books'] as List<dynamic>;
     _books = booksJson

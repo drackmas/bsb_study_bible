@@ -13,7 +13,7 @@ flutter test
 - `lib/models/` — data models (Book, Chapter, Verse)
 - `lib/services/` — BibleService for loading data
 - `lib/screens/` — BibleScreen, BookPicker, ChapterPicker, SettingsScreen
-- `assets/BSB.json` — Bible data (194,080 lines, 66 books)
+- `assets/bible/BSB.json` — Bible data (194,080 lines, 66 books)
 
 ## Data Model
 - `Book{name, chapters: List<Chapter>}`
@@ -35,7 +35,7 @@ flutter test
 - `/settings` — SettingsScreen
 
 ## Gotchas
-- `pubspec.yaml` has `assets/BSB.json` declared
+- `pubspec.yaml` has `assets/bible/BSB.json` declared
 - Lint config: `flutter_lints/flutter.yaml`
 - `opencode.json` configures Qwen3.6-35B-A3B-Q8_0 via llama-server at `http://127.0.0.1:8080/v1`
 - No CI, no pre-commit hooks, no monorepo structure
