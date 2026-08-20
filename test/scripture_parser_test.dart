@@ -2,11 +2,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:bible_app/services/scripture_parser.dart';
 
 void main() {
-  group('ScriptureParser', () {
-    ScriptureParser parser = ScriptureParser();
+  TestWidgetsFlutterBinding.ensureInitialized();
 
-    setUp(() {
+  group('ScriptureParser', () {
+    late ScriptureParser parser;
+
+    setUp(() async {
       parser = ScriptureParser();
+      await parser.load();
     });
 
     test('parses simple reference Matthew 1:1', () {
