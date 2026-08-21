@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:provider/provider.dart';
 
 import '../models/verse.dart';
@@ -32,6 +33,10 @@ class _BibleScreenState extends State<BibleScreen> {
 
   // Keys for each verse item
   final Map<int, GlobalKey> _verseKeys = {};
+
+  /// Jump deferred until the Bible data finishes loading, if a commentary
+  /// link was tapped before that happened.
+  String? _pendingJumpRef;
 
   @override
   void initState() {
@@ -68,6 +73,11 @@ class _BibleScreenState extends State<BibleScreen> {
       if (mounted) {
         _loadChapter();
         setState(() => _isLoading = false);
+        final pendingJump = _pendingJumpRef;
+        _pendingJumpRef = null;
+        if (pendingJump != null) {
+          _jumpToReference(pendingJump);
+        }
       }
     } catch (_) {
       if (mounted) {
@@ -119,11 +129,16 @@ class _BibleScreenState extends State<BibleScreen> {
     if (renderObject == null) return;
 
     final scrollPosition = _scrollController.position;
-    final viewportBox = Scrollable.of(context).context.findRenderObject() as RenderBox;
+
+    // Find the enclosing viewport. (Context-based lookups like
+    // Scrollable.of() don't work here: this state's context is above the
+    // list, and Scrollable.of only searches ancestors.)
+    final viewport = RenderAbstractViewport.maybeOf(renderObject) as RenderBox?;
+    if (viewport == null) return;
 
     // Distance from the top of the viewport to the top of the verse row.
     final verseTop = renderObject.localToGlobal(Offset.zero).dy;
-    final viewportTop = viewportBox.localToGlobal(Offset.zero).dy;
+    final viewportTop = viewport.localToGlobal(Offset.zero).dy;
     final verseOffsetInViewport = verseTop - viewportTop;
 
     // Center the verse row vertically within the viewport.
@@ -140,6 +155,12 @@ class _BibleScreenState extends State<BibleScreen> {
   }
 
   Future<void> _jumpToReference(String canonicalRef) async {
+    if (!_bibleService.isLoaded) {
+      // Bible data still loading; run the jump once it is ready.
+      _pendingJumpRef = canonicalRef;
+      return;
+    }
+
     final parser = ScriptureParser();
     final ref = parser.parse(canonicalRef);
     if (ref == null) return;
@@ -270,11 +291,13 @@ class _BibleScreenState extends State<BibleScreen> {
           ? const Center(child: CircularProgressIndicator())
           : _verses.isEmpty
               ? const Center(child: Text('No verses available'))
-              : ListView.builder(
+              : ListView(
+                  // Eager (non-lazy) list: chapters are short (max 176 verses),
+                  // and building every row keeps each verse's GlobalKey attached
+                  // so _scrollToVerse can always locate and center the target.
                   controller: _scrollController,
                   padding: const EdgeInsets.fromLTRB(16, 12, 16, 32),
-                  itemCount: _verses.length,
-                  itemBuilder: (context, index) {
+                  children: List.generate(_verses.length, (index) {
                     final verse = _verses[index];
                     final canonicalRef = verse.toCanonical();
                     final hasCommentary =
@@ -358,7 +381,7 @@ class _BibleScreenState extends State<BibleScreen> {
                         ),
                       ),
                     );
-                  },
+                  }),
                 ),
     );
   }

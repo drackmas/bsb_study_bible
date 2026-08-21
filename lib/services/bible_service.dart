@@ -21,6 +21,8 @@ class BibleService {
 
   List<Book> get books => _books;
 
+  bool get isLoaded => _loaded;
+
   /// Normalizes a book name for comparison: trims, lowercases, collapses
   /// whitespace, converts a leading Roman numeral (I/II/III) to Arabic,
   /// and maps the "Revelation" abbreviation to BSB's "Revelation of John".
